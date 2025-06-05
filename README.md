@@ -35,7 +35,7 @@
 
    使用 pyinstaller 代码带包为exe可执行文件的命令：
     ```shell
-    pyinstaller --name ScheduledTaskApp --windowed --icon=assets/icon.ico --add-data="assets/icon.ico;./assets" --add-data="data/tasks_data.json;./data" main.py
+    pyinstaller --name ScheduledTaskApp_win64 --windowed --icon=assets/icon.ico --add-data="assets/icon.ico;./assets" --add-data="data/tasks_data.json;./data" main.py
     ```
     ~~使用 pyinstaller 代码带包为app/dmg可执行文件的命令(目前代码仍不支持macos系统)~~
     ```bash
