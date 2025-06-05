@@ -1,0 +1,11 @@
+[project]
+name = "desktop-scheduled-task-toolkit"
+version = "0.1.0"
+description = "一个操作window系统的工具"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyinstaller>=6.13.0",
+    "pyqt6>=6.9.0",
+]
+
