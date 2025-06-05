@@ -277,6 +277,12 @@ class ModernMainWindow(QMainWindow):
         self.startup_checkbox.stateChanged.connect(self.toggle_startup)
         btn_layout.addWidget(self.startup_checkbox)
 
+        # 测试通知按钮
+        self.test_notification_btn = QPushButton("🔔 测试通知")
+        self.test_notification_btn.setObjectName("testNotificationButton")
+        self.test_notification_btn.clicked.connect(self.show_test_notification)
+        btn_layout.addWidget(self.test_notification_btn)
+
         btn_layout.addStretch()
 
         self.minimize_btn = QPushButton("🔽 最小化到托盘")
@@ -407,6 +413,20 @@ class ModernMainWindow(QMainWindow):
 
         #addButton:hover {
             background-color: #229954;
+        }
+
+        #testNotificationButton {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        #testNotificationButton:hover {
+            background-color: #2980b9;
         }
 
         #minimizeButton {
@@ -590,6 +610,20 @@ class ModernMainWindow(QMainWindow):
 
         #addButton:hover {
             background-color: #2ecc71;
+        }
+
+        #testNotificationButton {
+            background-color: #3498db;
+            color: #ecf0f1;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        #testNotificationButton:hover {
+            background-color: #2980b9;
         }
 
         #minimizeButton {
@@ -804,6 +838,25 @@ class ModernMainWindow(QMainWindow):
     
     def close_app(self):
         self.tray_app.quit_application()
+        
+    def show_test_notification(self):
+        """显示测试通知"""
+        # 创建一个测试任务
+        current_time = QTime.currentTime().toString("HH:mm")
+        test_task = {
+            'id': 0,
+            'content': "这是一条测试通知，用于验证通知功能是否正常工作。",
+            'weekdays': [0, 1, 2, 3, 4, 5, 6],  # 所有星期
+            'time': current_time,
+            'enabled': True,
+            'last_triggered': None
+        }
+        
+        # 显示通知
+        self.tray_app.show_custom_notification(test_task)
+        
+        # 显示成功消息
+        QMessageBox.information(self, "测试通知", f"测试通知已发送！\n时间: {current_time}\n请检查系统通知区域。")
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
