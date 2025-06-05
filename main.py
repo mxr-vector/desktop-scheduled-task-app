@@ -5,10 +5,10 @@ import socket
 from PyQt6.QtWidgets import (
     QApplication, QSystemTrayIcon, QMenu, QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QTimeEdit, QPushButton, QMessageBox, QCheckBox, QMainWindow,
-    QWidget, QListWidget, QListWidgetItem, QTextEdit, QGroupBox
+    QWidget, QListWidget, QListWidgetItem, QTextEdit, QGroupBox, QComboBox
 )
 from PyQt6.QtCore import QTimer, QTime, QSettings, Qt, QSocketNotifier
-from PyQt6.QtGui import QIcon, QAction, QFont
+from PyQt6.QtGui import QIcon, QAction, QFont, QPalette, QColor
 import datetime
 import winreg
 
@@ -34,6 +34,17 @@ def activate_existing_instance():
         sock.close()
     except Exception:
         pass
+
+# 检测Windows系统是否处于暗黑模式
+def is_windows_dark_mode():
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                           r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+        winreg.CloseKey(key)
+        return value == 0  # 0表示暗黑模式，1表示浅色模式
+    except Exception:
+        return False  # 如果无法检测，默认返回False
 
 APP_DIR = ''
 
@@ -68,9 +79,15 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # 示例：获取 icon.ico 和 tasks_data.json 的路径
+# 示例：获取 icon.ico 和 tasks_data.json 的路径
 ICON_PATH = resource_path("assets/icon.ico")
 APP_NAME = "ScheduledTaskApp"
 DATA_FILE = resource_path("data/tasks_data.json")
+
+# 定义主题类型
+THEME_SYSTEM = "system"
+THEME_LIGHT = "light"
+THEME_DARK = "dark"
 
 class TaskData:
     def __init__(self):
@@ -116,9 +133,10 @@ class TaskData:
         return [t for t in self.tasks if t['enabled']]
 
 class CustomNotification(QDialog):
-    def __init__(self, task, parent=None):
+    def __init__(self, task, parent=None, is_dark_mode=False):
         super().__init__(parent)
         self.task = task
+        self.is_dark_mode = is_dark_mode
         self.setup_ui()
 
     def setup_ui(self):
@@ -132,13 +150,13 @@ class CustomNotification(QDialog):
 
         # 时间标签
         time_label = QLabel(f"⏰ {self.task['time']}")
-        time_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50;")
+        time_label.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {'#ecf0f1' if self.is_dark_mode else '#2c3e50'};")
         layout.addWidget(time_label)
 
         # 内容
         content_label = QLabel(self.task['content'])
         content_label.setWordWrap(True)
-        content_label.setStyleSheet("font-size: 14px; color: #34495e; padding: 10px; background-color: #f8f9fa; border-radius: 5px;")
+        content_label.setStyleSheet(f"font-size: 14px; color: {'#ecf0f1' if self.is_dark_mode else '#34495e'}; padding: 10px; background-color: {'#2c3e50' if self.is_dark_mode else '#f8f9fa'}; border-radius: 5px;")
         layout.addWidget(content_label)
 
         # 按钮
@@ -146,24 +164,28 @@ class CustomNotification(QDialog):
         btn_layout.addStretch()
 
         ok_btn = QPushButton("知道了")
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
+        ok_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {'#3498db' if not self.is_dark_mode else '#2980b9'};
+                color: {'#ecf0f1' if self.is_dark_mode else 'white'};
                 border: none;
                 border-radius: 5px;
                 padding: 8px 20px;
                 font-size: 12px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {'#2980b9' if not self.is_dark_mode else '#3498db'};
+            }}
         """)
         ok_btn.clicked.connect(self.accept)
         btn_layout.addWidget(ok_btn)
 
         layout.addLayout(btn_layout)
+
+        # 设置对话框背景色
+        if self.is_dark_mode:
+            self.setStyleSheet("background-color: #1e272e;")
 
 class ModernMainWindow(QMainWindow):
     def __init__(self, tray_app):
@@ -171,7 +193,7 @@ class ModernMainWindow(QMainWindow):
         self.tray_app = tray_app
         self.task_data = tray_app.task_data
         self.setup_ui()
-        self.apply_modern_style()
+        self.apply_theme()
         self.load_tasks()
 
     def setup_ui(self):
@@ -269,7 +291,21 @@ class ModernMainWindow(QMainWindow):
 
         main_layout.addLayout(btn_layout)
 
-    def apply_modern_style(self):
+    def apply_theme(self):
+        theme = self.tray_app.settings.value("theme", THEME_SYSTEM, type=str)
+        is_dark = False
+        
+        if theme == THEME_SYSTEM:
+            is_dark = is_windows_dark_mode()
+        elif theme == THEME_DARK:
+            is_dark = True
+            
+        if is_dark:
+            self.apply_dark_style()
+        else:
+            self.apply_light_style()
+
+    def apply_light_style(self):
         style = """
         QMainWindow {
             background-color: #f8f9fa;
@@ -423,6 +459,229 @@ class ModernMainWindow(QMainWindow):
             background-color: #3498db;
             color: white;
         }
+
+        QComboBox {
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            background-color: white;
+            min-width: 120px;
+        }
+
+        QComboBox::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 20px;
+            border-left-width: 1px;
+            border-left-color: #e0e0e0;
+            border-left-style: solid;
+        }
+        """
+        self.setStyleSheet(style)
+
+    def apply_dark_style(self):
+        style = """
+        QMainWindow {
+            background-color: #1e272e;
+            color: #ecf0f1;
+        }
+
+        QLabel {
+            color: #ecf0f1;
+        }
+
+        #titleLabel {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ecf0f1;
+            padding: 10px;
+            background-color: #2c3e50;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        QGroupBox {
+            font-size: 14px;
+            font-weight: bold;
+            color: #ecf0f1;
+            border: 2px solid #34495e;
+            border-radius: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 8px 0 8px;
+            background-color: #1e272e;
+        }
+
+        QTextEdit, QLineEdit {
+            border: 2px solid #34495e;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+        }
+
+        QTextEdit:focus, QLineEdit:focus {
+            border-color: #3498db;
+        }
+
+        QTimeEdit {
+            border: 2px solid #34495e;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            min-width: 80px;
+        }
+
+        QCheckBox {
+            font-size: 12px;
+            spacing: 5px;
+            color: #ecf0f1;
+        }
+
+        QCheckBox::indicator {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            border: 2px solid #7f8c8d;
+        }
+
+        QCheckBox::indicator:checked {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+
+        #startupCheckbox {
+            font-size: 14px;
+            font-weight: bold;
+            color: #9b59b6;
+            spacing: 8px;
+        }
+
+        #startupCheckbox::indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #9b59b6;
+        }
+
+        #startupCheckbox::indicator:checked {
+            background-color: #9b59b6;
+            border-color: #9b59b6;
+        }
+
+        #addButton {
+            background-color: #27ae60;
+            color: #ecf0f1;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        #addButton:hover {
+            background-color: #2ecc71;
+        }
+
+        #minimizeButton {
+            background-color: #d35400;
+            color: #ecf0f1;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        #minimizeButton:hover {
+            background-color: #e67e22;
+        }
+
+        #closeButton {
+            background-color: #c0392b;
+            color: #ecf0f1;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        #closeButton:hover {
+            background-color: #e74c3c;
+        }
+
+        #taskList {
+            border: 2px solid #34495e;
+            border-radius: 8px;
+            background-color: #2c3e50;
+            alternate-background-color: #34495e;
+            selection-background-color: #3498db;
+            color: #ecf0f1;
+            font-size: 12px;
+        }
+
+        QListWidget::item {
+            padding: 10px;
+            border-bottom: 1px solid #34495e;
+            color: #ecf0f1;
+        }
+
+        QListWidget::item:hover {
+            background-color: #34495e;
+        }
+
+        QListWidget::item:selected {
+            background-color: #3498db;
+            color: #ecf0f1;
+        }
+
+        QComboBox {
+            border: 2px solid #34495e;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            min-width: 120px;
+        }
+
+        QComboBox::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 20px;
+            border-left-width: 1px;
+            border-left-color: #34495e;
+            border-left-style: solid;
+        }
+
+        QMenu {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            border: 1px solid #34495e;
+        }
+
+        QMenu::item {
+            padding: 5px 20px 5px 20px;
+        }
+
+        QMenu::item:selected {
+            background-color: #3498db;
+        }
+
+        QMessageBox {
+            background-color: #1e272e;
+            color: #ecf0f1;
+        }
         """
         self.setStyleSheet(style)
 
@@ -552,6 +811,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("设置")
         self.settings = QSettings("MyCompany", APP_NAME)
         self.setup_ui()
+        self.apply_theme()
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -563,6 +823,22 @@ class SettingsDialog(QDialog):
         self.daily_popup_checkbox.setChecked(self.settings.value("daily_popup", True, type=bool))
         layout.addWidget(self.daily_popup_checkbox)
 
+        # 主题设置
+        theme_layout = QHBoxLayout()
+        theme_layout.addWidget(QLabel("应用主题:"))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem("跟随系统", THEME_SYSTEM)
+        self.theme_combo.addItem("浅色模式", THEME_LIGHT)
+        self.theme_combo.addItem("深色模式", THEME_DARK)
+        
+        current_theme = self.settings.value("theme", THEME_SYSTEM, type=str)
+        index = self.theme_combo.findData(current_theme)
+        if index >= 0:
+            self.theme_combo.setCurrentIndex(index)
+            
+        theme_layout.addWidget(self.theme_combo)
+        layout.addLayout(theme_layout)
+
         # 保存按钮
         self.save_button = QPushButton("保存设置")
         self.save_button.clicked.connect(self.save_settings)
@@ -570,8 +846,49 @@ class SettingsDialog(QDialog):
 
     def save_settings(self):
         self.settings.setValue("daily_popup", self.daily_popup_checkbox.isChecked())
-        QMessageBox.information(self, "设置已保存", "设置已成功保存！")
+        self.settings.setValue("theme", self.theme_combo.currentData())
+        QMessageBox.information(self, "设置已保存", "设置已成功保存！需要重启应用以应用主题更改。")
         self.accept()
+
+    def apply_theme(self):
+        theme = self.settings.value("theme", THEME_SYSTEM, type=str)
+        is_dark = False
+        
+        if theme == THEME_SYSTEM:
+            is_dark = is_windows_dark_mode()
+        elif theme == THEME_DARK:
+            is_dark = True
+            
+        if is_dark:
+            self.setStyleSheet("""
+                QDialog {
+                    background-color: #1e272e;
+                    color: #ecf0f1;
+                }
+                QLabel {
+                    color: #ecf0f1;
+                }
+                QCheckBox {
+                    color: #ecf0f1;
+                }
+                QPushButton {
+                    background-color: #3498db;
+                    color: #ecf0f1;
+                    border: none;
+                    border-radius: 5px;
+                    padding: 8px 20px;
+                }
+                QPushButton:hover {
+                    background-color: #2980b9;
+                }
+                QComboBox {
+                    border: 2px solid #34495e;
+                    border-radius: 6px;
+                    padding: 8px;
+                    background-color: #2c3e50;
+                    color: #ecf0f1;
+                }
+            """)
 
 class TrayApplication(QApplication):
     def __init__(self, *args, socket=None, **kwargs):  # 添加 socket 关键字参数
@@ -617,6 +934,29 @@ class TrayApplication(QApplication):
         exit_action = QAction("退出", self)
         exit_action.triggered.connect(self.quit_application)
         self.tray_menu.addAction(exit_action)
+
+        # 应用主题到托盘菜单
+        theme = self.settings.value("theme", THEME_SYSTEM, type=str)
+        is_dark = False
+        if theme == THEME_SYSTEM:
+            is_dark = is_windows_dark_mode()
+        elif theme == THEME_DARK:
+            is_dark = True
+            
+        if is_dark:
+            self.tray_menu.setStyleSheet("""
+                QMenu {
+                    background-color: #2c3e50;
+                    color: #ecf0f1;
+                    border: 1px solid #34495e;
+                }
+                QMenu::item {
+                    padding: 5px 20px 5px 20px;
+                }
+                QMenu::item:selected {
+                    background-color: #3498db;
+                }
+            """)
 
         self.tray_icon.setContextMenu(self.tray_menu)
         self.tray_icon.activated.connect(self.on_tray_icon_activated)
@@ -685,7 +1025,15 @@ class TrayApplication(QApplication):
         
         # 弹窗通知（如果启用）
         if self.settings.value("daily_popup", True, type=bool):
-            notification = CustomNotification(task)
+            # 检查是否为暗黑模式
+            theme = self.settings.value("theme", THEME_SYSTEM, type=str)
+            is_dark = False
+            if theme == THEME_SYSTEM:
+                is_dark = is_windows_dark_mode()
+            elif theme == THEME_DARK:
+                is_dark = True
+                
+            notification = CustomNotification(task, is_dark_mode=is_dark)
             notification.exec()
 
     def on_tray_icon_activated(self, reason):
